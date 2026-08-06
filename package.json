@@ -1,0 +1,61 @@
+{
+  "name": "tsl-inspector",
+  "version": "0.1.0",
+  "description": "Leva's useControls over the three.js WebGPU Inspector, for React Three Fiber. Tweak TSL uniforms with no re-render and no recompile.",
+  "type": "module",
+  "license": "MIT",
+  "author": "silasjul",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silasjul/inspector.git"
+  },
+  "bugs": "https://github.com/silasjul/inspector/issues",
+  "homepage": "https://github.com/silasjul/inspector#readme",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:types": "vitest run --typecheck.only",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "three",
+    "threejs",
+    "tsl",
+    "webgpu",
+    "react-three-fiber",
+    "r3f",
+    "leva",
+    "inspector",
+    "gui"
+  ],
+  "peerDependencies": {
+    "@react-three/fiber": ">=9",
+    "react": ">=19",
+    "react-dom": ">=19",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@react-three/fiber": "^9.7.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.184.1",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.184.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
