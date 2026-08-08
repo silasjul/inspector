@@ -78,11 +78,45 @@ Four call shapes, all Leva's: `useControls(schema)`, `(schema, settings)`, `(nam
 `(name, schema, settings)`. Any of them takes a trailing `deps` array, which is the only thing that
 rebuilds a folder. `settings` is `{ collapsed?, order? }`.
 
-Call each hook exactly once; twice builds the folder twice. A folder's lifetime follows its caller,
-so to make one mount and unmount with a swappable scene, call its hook from that component.
+A folder's lifetime follows its caller, so to make one mount and unmount with a swappable scene,
+call its hook from that component.
 
 In production no Inspector is ever attached, so `useControls` returns the schema's own values and
 never renders anything.
+
+## Folder paths
+
+A folder name can be a path. `'Cube/Pattern'` builds `Pattern` inside `Cube`, and builds `Cube` too
+if nothing has yet:
+
+```ts
+useControls('Cube', { size: 10, spin: 0.3 });
+controls('Cube/Pattern', { colorA: '#c98f5a', speed: 1.2 });
+```
+
+One panel folder, `Cube`, with its own rows and a `Pattern` folder under them. Nest as deep as you
+like: `'Cube/Pattern/Shape'`.
+
+This is the one thing `folder()` can't do, because `folder()` nests inside **one** schema and a call
+is either React or it isn't. A path crosses that line — which is the point, since a shader's rows
+come from `controls` at module scope while the object's own rows come from `useControls` in the
+component.
+
+The rules:
+
+- **Order of arrival doesn't matter.** Whichever call runs first builds the folder; the other finds
+  it. A missing ancestor is built as an empty container.
+- **A folder lives as long as any registration through it does.** Unmount the component and its rows
+  go, while the shader's folder stays up. When the last one goes, the whole path goes with it.
+- **A registration only ever takes back its own rows.** Two calls naming the same folder merge into
+  it rather than building it twice.
+- **A path folder sorts below the rows its parent declared**, since it has no declaration point of
+  its own to sit at. `order` in `settings` sorts path folders against each other.
+- Segments are trimmed and empty ones ignored, so `'Cube / Pattern'` is the same path. A name with no
+  separator behaves exactly as it always did.
+
+Nothing here runs per frame. The path is resolved once when a folder is built and once when it is
+torn down — a `Map` lookup per segment. The render loop never sees it.
 
 ## The schema
 
@@ -122,9 +156,10 @@ comes back as a **uniform node** rather than a value.
 - Text and dropdown rows have no node, so they come back as plain values, kept current in place.
   TypeScript can't tell `'#ff006e'` from `'hello'`, so a string row always *types* as a colour — if
   you want text, use `useControls`.
-- The folder name is required, and a second `controls('Shader', …)` **replaces** that folder rather
-  than building a second one. Module scope re-runs on every Fast Refresh and there's no unmount to
-  tear down from, so the registration is keyed by name. It warns when it replaces one, since a real
+- The folder name is required, may be a path, and a second `controls('Shader', …)` **replaces** that
+  registration rather than adding a second one. Module scope re-runs on every Fast Refresh and
+  there's no unmount to tear down from, so it is keyed by the full name. It warns when it replaces
+  one, since a real
   name clash looks identical.
 - It's evaluated on the server too, so the module it lives in must not touch `window` or `document`.
 

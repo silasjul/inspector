@@ -7,8 +7,9 @@ nothing else, which is what lets it be a single entry point.
 ## Shape
 
 - `addon.ts` — the Inspector singleton (`setInspector` / `releaseInspector` / `onInspector`), the
-  `Addon` type that matches the shipped JS, folder and root-row plumbing, the compound vector row,
-  and small DOM helpers. **Every cast in the package lives here.** Don't put one anywhere else.
+  `Addon` type that matches the shipped JS, the folder tree behind path names, root-row plumbing, the
+  compound vector row, and small DOM helpers. **Every cast in the package lives here.** Don't put one
+  anywhere else.
 - `schema.ts` — the Leva schema layer: type inference, `button`, `folder`, `initialValues`,
   `parseArgs`, colour parsing, and the schema→row dispatch. Framework-free; no React. Both entry
   points are wrappers around its `buildControls`, so a widget or a trap is fixed once.
@@ -116,13 +117,50 @@ never from memory.
   `addRootRows` strips it back off the loose rows it reparents.
 - **A text row fires on every keystroke**, so a string input re-renders per character. Fine for a dev
   panel; don't debounce it.
-- **`controls()` replaces a folder of the same name** rather than building a second one, unlike
+- **`controls()` replaces a registration of the same name** rather than adding a second one, unlike
   `useControls`. Module scope re-runs on every Fast Refresh and has no unmount to tear down from, so
-  the registration is keyed by folder name — and the name is required, because an unnamed one would
-  put every module in the same slot. Replacement warns outside production, since Fast Refresh and a
-  genuine clash are indistinguishable at runtime.
+  it is keyed by the full folder name — and the name is required, because an unnamed one would put
+  every module in the same slot. Replacement warns outside production, since Fast Refresh and a
+  genuine clash are indistinguishable at runtime. This is its own map, not the folder tree: two
+  *different* names sharing a folder is normal and does not warn.
 - **`add()` returns `null`** for a value it has no widget for, so a chained `.name()` throws. The
   schema layer never relies on `add()`'s dispatch — it calls the specific `addX` method.
+- **`createGroup` never looks a name up**, so two registrations naming one folder would build two.
+  That is what the folder tree in `addon.ts` exists for — see below.
+
+## The folder tree
+
+`addFolder(inspector, name, …)` takes a **path**: `'Cube/Pattern'` nests. It exists because a folder
+is per registration and a registration is either React (`useControls`) or module scope (`controls`),
+never both — so a shader's rows could not otherwise sit inside the object's own folder. `folder()`
+nests within one schema; a path nests across calls.
+
+- **Keyed by Inspector, in a `WeakMap`.** A Fast Refresh builds a new Inspector and every folder went
+  with the old one, so a module-global tree would hand back nodes whose DOM is gone. Weak, so the
+  tree is collectable with the Inspector it describes.
+- **`refs` counts registrations whose path runs through a node, not rows in it.** `controls('Cube/Pattern')`
+  holds a reference on `Cube` as well as on `Pattern`. A parent's count therefore includes every
+  child's, which is why `release` walks deepest-first and why a parent can only reach zero after its
+  children have. Teardown order between the two calls doesn't matter.
+- **Only root nodes are in `tab.groups`.** `createParameters` pushes; the nested
+  `ParametersGroup.addFolder` does not. So `dropGroup` runs for a root node and would be wrong for a
+  nested one.
+- **A teardown removes the rows its own `build` added, not the folder.** The folder may still be
+  someone else's. The set is diffed off `paramList.children` around the `build` call, which also
+  catches the sub-groups an inline `folder()` adds.
+- **`group.objects` has to be trimmed with them.** It is push-only — nothing in the Inspector ever
+  reads it — so a folder that outlives a registration would retain that registration's editors, rows
+  and value map for as long as it stands. `dropGroup` was the same bug one level up.
+- **A path folder is stamped `SUBFOLDER` so it sorts below its parent's own rows**, which carry no
+  stamp and read as 0. Without the re-sort after `build`, a sub-folder that arrived first (module
+  scope beats a mount) would sit above rows declared before it — and which arrives first is genuinely
+  not deterministic, since the renderer is built asynchronously.
+- **An ancestor built on the way to a leaf gets order 0**, because it is a container someone else may
+  own; it is restamped when its real owner registers with an order of its own.
+- **Nothing here touches the render loop.** A path is resolved once per build and once per teardown,
+  at a `Map` lookup per segment. `test/folders.test.ts` asserts no `requestAnimationFrame` is
+  scheduled across a build/teardown cycle, and that a second registration reuses a folder rather than
+  calling `createParameters` again.
 
 ## Types
 

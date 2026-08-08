@@ -49,6 +49,49 @@ export function rowFor(inspector: Inspector, label: string) {
   return row;
 }
 
+/**
+ * A row's or a folder's own title, ignoring anything nested under it — `labelOf` finds a child's
+ * cell first once a folder has children. The toggler span a folder grows trims away.
+ */
+export function titleOf(element: HTMLElement) {
+  return (
+    element.querySelector(':scope > .list-item-row > .list-item-cell')?.textContent?.trim() ?? ''
+  );
+}
+
+/**
+ * What sits directly inside a folder, or at the root. An `Item` holds its children in the
+ * `.list-children-container` it builds on the first one; the root `List` appends them into its own
+ * element, beside a `<style>` and the header row — hence the filter.
+ */
+export function childrenOf(element: HTMLElement) {
+  const container = element.querySelector<HTMLElement>(':scope > .list-children-container');
+
+  return [...(container ?? element).children].filter((child): child is HTMLElement =>
+    child.classList.contains('list-item-wrapper')
+  );
+}
+
+/** Walks a `'Cube/Pattern'` path through the rendered panel, saying what it found where it stops. */
+export function folderAt(inspector: Inspector, path: string) {
+  let scope = childrenOf(rootList(inspector));
+  let found: HTMLElement | undefined;
+
+  for (const key of path.split('/')) {
+    found = scope.find((child) => titleOf(child) === key);
+    if (!found) throw new Error(`no folder "${key}" in [${scope.map(titleOf)}]`);
+
+    scope = childrenOf(found);
+  }
+
+  return found as HTMLElement;
+}
+
+/** The labels directly inside a folder — its own rows and its sub-folders, in rendered order. */
+export function labelsIn(element: HTMLElement) {
+  return childrenOf(element).map(titleOf);
+}
+
 /** A slider composes a ValueNumber, so the range input has to be preferred over the number one. */
 export function controlOf(row: HTMLElement) {
   return (row.querySelector<HTMLElement>('input[type=range]') ??
