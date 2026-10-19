@@ -15,7 +15,8 @@ type Row = { parent: Container | null; domElement: HTMLElement; userData: Record
 /**
  * `ui/List.js` and `ui/Item.js` are the same shape where it counts — both hold children and both are
  * somebody's `parent`. The one difference: a List appends a child's DOM into `domElement`, an Item
- * into the `childrenContainer` it builds lazily on its first child.
+ * into its `childrenContainer` — built lazily on its first child, or up front for a folder, which
+ * `ParametersGroup` makes collapsible.
  */
 type Container = {
   children: Row[];

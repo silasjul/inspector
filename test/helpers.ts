@@ -32,9 +32,12 @@ export function rows(inspector: Inspector) {
   );
 }
 
-/** Every `Value` defers its callback by one frame, so nothing propagates within the same tick. */
+/**
+ * Every `Value` defers its callback with a zero-delay `setTimeout`, so nothing propagates within the
+ * same tick. Timers of equal delay run in order, so one queued after it runs after it.
+ */
 export function flush() {
-  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  return new Promise<void>((resolve) => setTimeout(resolve));
 }
 
 /** A row is `.list-item-wrapper > .list-item-row > .list-item-cell` twice: label, then control. */
@@ -61,8 +64,8 @@ export function titleOf(element: HTMLElement) {
 
 /**
  * What sits directly inside a folder, or at the root. An `Item` holds its children in the
- * `.list-children-container` it builds on the first one; the root `List` appends them into its own
- * element, beside a `<style>` and the header row — hence the filter.
+ * `.list-children-container`; the root `List` appends them into its own element, beside the header
+ * row — hence the filter.
  */
 export function childrenOf(element: HTMLElement) {
   const container = element.querySelector<HTMLElement>(':scope > .list-children-container');

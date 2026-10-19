@@ -18,7 +18,9 @@ nothing else, which is what lets it be a single entry point.
   evaluated on the server — nothing in its module body may touch the DOM.
 - `renderer.ts` — `createWebGPURenderer`, plus the R3F `ThreeElements` module augmentation that
   makes `<meshStandardNodeMaterial />` and friends typecheck. Deleting that `declare module` block
-  breaks every node-material element in a consuming app.
+  breaks every node-material element in a consuming app. It omits `pMREMGenerator`, the one key
+  where `three/webgpu` and `three` export different classes — TypeScript 7 rejects a merged
+  interface that redeclares a key with another type. `test/types.test-d.ts` guards both directions.
 - `useControls.ts` / `useParameters.ts` — the React layer.
 - `toggle.ts` — the machinery both toggles share: one key bound to one boolean, re-applied to
   whichever Inspector is current. Its `bind` argument must be a module-level function in the calling
@@ -34,22 +36,26 @@ Imports inside `src/` are relative, never aliased.
 
 It is pinned to the internals of `three/examples/jsm/inspector/`, which is new, undocumented, and
 has no stability guarantee. It will break on a three.js upgrade — hence the exact-minor peer range
-`three: "^0.184.0"`, which is `>=0.184.0 <0.185.0`.
+`three: "^0.186.0"`, which is `>=0.186.0 <0.187.0`.
 
-**`@types/three` is not the source of truth here.** `tabs/Parameters.d.ts` declares only
-`add`/`addFolder`/`addColor` — `addNumber`, `addSlider`, `addBoolean`, `addString`, `addSelect`,
-`addButton`, `close()` and `objects` all ship but are undeclared — and it invents an
-`addColor(…, rgbScale)` parameter that does not exist in the JS. `ui/Item.d.ts` declares a
-constructor and `domElement` and nothing else. `ui/List.js` has no declaration at all.
+**`@types/three` is not the source of truth here.** `tabs/Parameters.d.ts` declares
+`add`/`addFolder`/`addColor`, `paramList` and `close`/`name`/`show`/`hide` — `addNumber`,
+`addSlider`, `addBoolean`, `addString`, `addSelect`, `addButton` and `objects` all ship but are
+undeclared — and it invents an `addColor(…, rgbScale)` parameter that does not exist in the JS.
+`ui/Item.d.ts` declares a constructor and `domElement` and nothing else. `ui/List.js` has no
+declaration at all. `Inspector.d.ts` is the one that is close to complete — `setVisible` is typed.
 
 So: **read the JavaScript in `node_modules/three/examples/jsm/inspector/`.** Never the `.d.ts`, and
 never from memory.
 
 ## Traps, verified against source and covered by tests
 
-- **Every `Value` callback is deferred by one `requestAnimationFrame`** (`ui/Values.js`, the base
-  class's own `change` listener). Nothing propagates within the tick that caused it. Tests must
-  await a frame; `test/helpers.ts` `set()` returns that promise.
+- **Every `Value` callback is deferred by a `setTimeout`** (`ui/Values.js`, the base class's own
+  `change` listener; it was a `requestAnimationFrame` before r186). Nothing propagates within the
+  tick that caused it. Tests must await a macrotask; `test/helpers.ts` `set()` returns that promise.
+  It is also a **debounce**: each `change` clears the pending timeout, so several changes to one
+  editor in one tick reach the callback once, with the last value. Nothing here relies on seeing
+  every intermediate value — a vector's axes are separate editors.
 - **`addNumber` writes `object[property]` synchronously** from its own `change` listener, *before*
   the deferred callback runs. So the bound map can never be read for the previous value — the number
   row keeps its own `last`. Without that, `clampNumber`'s NaN guard compares NaN against NaN and an
@@ -59,10 +65,10 @@ never from memory.
   that step is Infinity, so one drag writes Infinity — or NaN when the drag is flat. So bounds never
   reach `addNumber`; `clampNumber` applies them after the fact. A both-bounded number is a slider,
   where the same arithmetic is what's wanted.
-- **A colour editor reports a packed int** whatever you passed in, and `_getColorHex` skips
-  `padStart`, so a colour below `0x100000` renders as an invalid swatch. Both are dodged by seeding
-  the row with a normalised `'#rrggbb'` string and writing one back on change. Never hand `addColor`
-  a number.
+- **A colour editor reports a packed int** whatever you passed in. It is dodged by seeding the row
+  with a normalised `'#rrggbb'` string and writing one back on change, through `hex()`. Before r186
+  `_getColorHex` also skipped `padStart`, so a number below `0x100000` rendered as an invalid swatch;
+  that is fixed upstream, but the string seeding stays — it is what keeps the bound value a string.
 - **`toHex` needs a canvas** to parse arbitrary CSS colours, and falls back to hex plus the 148
   `Color.NAMES` when there is none — the server, a hardened context, jsdom. Narrower (no `rgb()`,
   `hsl()`, `color()`) but far better than classifying every colour as text.
@@ -70,8 +76,9 @@ never from memory.
   no `.value`. The node types in `controls.ts` are read back off real `uniform()` calls through a
   never-invoked `nodeTypes()`, because `ReturnType` on an overloaded signature only picks the last
   overload.
-- **`.listen()` never stops.** It rAF-polls the bound object with no cancellation. Nothing uses it,
-  and on a select or colour row it is an infinite dispatch loop, since neither overrides `setValue`.
+- **`.listen()` never stops.** It rAF-polls the bound object with no cancellation. Nothing uses it.
+  Every `setValue` dispatches `change`, so on any row whose `getValue` never equals the bound value it
+  is an infinite dispatch loop — a colour row always, since it reports an int against a string.
 - **`ValueNumber` leaks two `document` listeners per control**, permanently, and a slider composes a
   `ValueNumber` so it leaks two. Upstream's bug; every folder rebuild adds more. Accepted — this is
   dev-only and shadowing the class to fix it isn't worth it.
@@ -90,9 +97,11 @@ never from memory.
   configured form inline makes a new function identity per render, which is harmless: R3F's
   `configure` guards on `state.gl` and the `WeakMap` catches the rest.
 - **`Inspector.show()` throws** (it calls `Profiler.show()` with no tab), so it is never a usable
-  visibility switch. `useInspectorToggle` hides `inspector.domElement` instead — the one shell that
-  holds the panel, the mini-panel and the FPS bar. Nothing reads `Inspector.getSize()`, so that
-  never reaches the renderer.
+  visibility switch. `useInspectorToggle` uses `Inspector.setVisible()` (r186+) instead, a display
+  toggle on `inspector.domElement` — the one shell that holds the panel, the mini-panel and the FPS
+  bar. Nothing reads `Inspector.getSize()`, so that never reaches the renderer.
+- **`renderer.dispose()` is async and disposes the Inspector** (r186+), which removes the profiler's
+  DOM. The wrapper in `renderer.ts` releases the singleton first and returns the original promise.
 - **`Tab.hide()` takes the tab's toolbar icon with it**, leaving nothing to click. That is fine for
   `useParametersToggle`, where a keyboard shortcut is the way back, and it is the Inspector's own
   mechanism — it builds the Parameters tab with `hide()` and `createParameters` calls `show()`.

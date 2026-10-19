@@ -20,7 +20,7 @@ afterEach(() => {
   setInspector(null);
 });
 
-/** Panel changes land in a deferred callback, so React has to be told the frame counts as an act. */
+/** Panel changes land in a deferred callback, so React has to be told the wait counts as an act. */
 const change = (label: string, value: unknown, axis = 0) =>
   act(async () => {
     await set(rowFor(inspector, label), value, axis);

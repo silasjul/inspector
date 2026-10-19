@@ -1,5 +1,7 @@
+import type { ThreeElements } from '@react-three/fiber';
 import { describe, expectTypeOf, it } from 'vitest';
 import { controls } from '../src/controls';
+import '../src/renderer';
 import { button, folder } from '../src/schema';
 import { useControls } from '../src/useControls';
 
@@ -101,5 +103,17 @@ describe('controls return type', () => {
   it('requires a folder name, since an unnamed one would collide with every other', () => {
     // @ts-expect-error the schema alone is not a valid call
     controls({ size: 4 });
+  });
+});
+
+describe('ThreeElements augmentation', () => {
+  it('declares the node materials as JSX elements', () => {
+    expectTypeOf<ThreeElements>().toHaveProperty('meshStandardNodeMaterial');
+    expectTypeOf<ThreeElements>().toHaveProperty('meshBasicNodeMaterial');
+  });
+
+  it('keeps the elements R3F declares itself', () => {
+    expectTypeOf<ThreeElements>().toHaveProperty('mesh');
+    expectTypeOf<ThreeElements>().toHaveProperty('boxGeometry');
   });
 });

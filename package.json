@@ -1,6 +1,6 @@
 {
   "name": "tsl-inspector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Leva's useControls over the three.js WebGPU Inspector, for React Three Fiber. Tweak TSL uniforms with no re-render and no recompile.",
   "type": "module",
   "license": "MIT",
@@ -42,20 +42,20 @@
     "@react-three/fiber": ">=9",
     "react": ">=19",
     "react-dom": ">=19",
-    "three": "^0.184.0"
+    "three": "^0.186.0"
   },
   "devDependencies": {
-    "@react-three/fiber": "^9.7.0",
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^26.1.2",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@types/three": "^0.184.1",
-    "jsdom": "^29.1.1",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "three": "^0.184.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "@react-three/fiber": "^9.8.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "jsdom": "^30.1.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.186.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }

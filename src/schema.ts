@@ -377,7 +377,7 @@ export function buildControls(
 
         // `values[key]` can't be the previous value here: `addNumber` registers its own `change`
         // listener that writes `object[property]` synchronously, while every `Value` defers its
-        // callback by a frame — so by the time this runs the map already holds the raw new value.
+        // callback by a timeout — so by the time this runs the map already holds the raw new value.
         // Without a separate copy `clampNumber`'s NaN guard compares NaN against NaN and an emptied
         // input writes NaN onward, which in a uniform blanks whatever the shader draws.
         let last = spec.value as number;

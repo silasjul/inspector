@@ -225,7 +225,7 @@ bother if the component is genuinely expensive.
 
 ## Three.js version
 
-The peer range is `^0.184.0`, which for a `0.x` package means `>=0.184.0 <0.185.0` — an exact-minor
+The peer range is `^0.186.0`, which for a `0.x` package means `>=0.186.0 <0.187.0` — an exact-minor
 pin, on purpose. This rides undocumented internals of `three/examples/jsm/inspector/`, which have no
 stability guarantee, so a three bump should force a version bump here and a re-verify rather than
 silently installing against moved internals.

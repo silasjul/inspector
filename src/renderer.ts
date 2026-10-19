@@ -2,9 +2,15 @@ import * as THREE from 'three/webgpu';
 import { extend, type ThreeToJSXElements } from '@react-three/fiber';
 import { releaseInspector, setInspector } from './addon';
 
+/**
+ * R3F's own `ThreeElements` is built from `three`, and a merged interface may not redeclare one of
+ * its keys with a different type. `three/webgpu` exports its own `PMREMGenerator`, so that key is
+ * left to R3F — it is a renderer utility, never a JSX element. TypeScript 7 enforces this; 5.x let
+ * the clash through.
+ */
 declare module '@react-three/fiber' {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface ThreeElements extends ThreeToJSXElements<typeof THREE> {}
+  interface ThreeElements extends Omit<ThreeToJSXElements<typeof THREE>, 'pMREMGenerator'> {}
 }
 
 extend(THREE as unknown as Parameters<typeof extend>[0]);
@@ -88,8 +94,10 @@ async function buildRenderer(props: GLDefaults, withInspector: boolean) {
     alpha: props.alpha,
   });
 
-  // Must be assigned before init(): the renderer only mounts the inspector's DOM
-  // from inside its own init(), and that promise is memoised.
+  // Assigning the inspector is what mounts it: `Inspector.setRenderer` starts the (memoised)
+  // `renderer.init()` itself and appends the panel beside the canvas, or waits on a
+  // MutationObserver until the canvas has a parent. So the order relative to the init() below
+  // doesn't matter.
   if (withInspector) {
     const { Inspector } = await import('three/addons/inspector/Inspector.js');
     const inspector = new Inspector();
@@ -107,13 +115,15 @@ async function buildRenderer(props: GLDefaults, withInspector: boolean) {
     // Without this the singleton outlives the Canvas: after an unmount it still points at a dead
     // Inspector, so anything mounting afterwards builds rows into a detached panel and never
     // updates. Dropping the cache entry matters too, or a remount on this canvas would reuse a
-    // disposed renderer — the very failure the cache exists to prevent.
+    // disposed renderer — the very failure the cache exists to prevent. `dispose()` is async and
+    // tears the Inspector down itself, so the singleton is released before it starts.
     const dispose = renderer.dispose.bind(renderer);
 
     renderer.dispose = () => {
       releaseInspector(inspector);
       renderers.delete(canvas);
-      dispose();
+
+      return dispose();
     };
   }
 

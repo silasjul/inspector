@@ -114,6 +114,28 @@ describe('change propagation', () => {
 
     expect(onValues).toHaveBeenLastCalledWith({ pos: { x: 1, y: 5 } });
   });
+
+  it('defers a change past the tick that caused it', async () => {
+    const onChange = vi.fn();
+    build({ size: { value: 1, onChange, transient: false } });
+
+    const settled = set(rowFor(inspector, 'size'), 7);
+    expect(onChange).not.toHaveBeenCalled();
+
+    await settled;
+    expect(onChange).toHaveBeenCalledWith(7);
+  });
+
+  it('collapses changes to one row within a tick into the last of them', async () => {
+    const onChange = vi.fn();
+    build({ size: { value: 1, onChange, transient: false } });
+    const row = rowFor(inspector, 'size');
+
+    await Promise.all([set(row, 3), set(row, 7)]);
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith(7);
+  });
 });
 
 describe('row options', () => {
