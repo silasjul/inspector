@@ -99,6 +99,12 @@ async function buildRenderer(props: GLDefaults, withInspector: boolean) {
   // MutationObserver until the canvas has a parent. So the order relative to the init() below
   // doesn't matter.
   if (withInspector) {
+    // Must load before Inspector.js, or Turbopack throws "reading 'REVISION'". Inspector.js imports
+    // tabs/Settings.js ahead of `three/webgpu`, and Settings.js calls Inspector's `getItem` at module
+    // load — a cycle. Native ESM bindings are live, so `getItem` still sees REVISION; Turbopack
+    // assigns each import in order, so it reads one Inspector.js has not bound yet. Entering the
+    // cycle at Settings.js lets Inspector.js finish first. The second import is then a cache hit.
+    await import('three/addons/inspector/tabs/Settings.js');
     const { Inspector } = await import('three/addons/inspector/Inspector.js');
     const inspector = new Inspector();
 

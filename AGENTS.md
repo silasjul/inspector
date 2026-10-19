@@ -91,6 +91,14 @@ never from memory.
   remount would reuse a dead renderer. Disposal clears the entry for the same reason. That cache is
   also where the `inspector` flag settles — a second call on a live canvas gets the first call's
   renderer and therefore the first call's flag.
+- **Turbopack breaks the Inspector's own import cycle.** `Inspector.js` imports `tabs/Settings.js`
+  before `three/webgpu`, and `Settings.js` calls `Inspector.js`'s `getItem` at module load. Native
+  ESM bindings are live, so `getItem` still sees `REVISION`; Turbopack assigns each import variable
+  in order, so `getItem` reads `REVISION` off an undefined import and throws "Cannot read properties
+  of undefined (reading 'REVISION')". `renderer.ts` imports `Settings.js` first, which lets
+  `Inspector.js` finish before `getItem` runs. Vitest uses native ESM, so no test reproduces it; it
+  shows only in a Next dev build. `src/three-inspector.d.ts` declares the module, because
+  `@types/three` has no declaration for it.
 - **`createWebGPURenderer` is both the R3F factory and its own configurator.** `gl={createWebGPURenderer}`
   hands it the canvas; `gl={createWebGPURenderer({ inspector: true })}` returns the factory. A
   `canvas` key is what tells the two apart, because only R3F calls it with one. Writing the
