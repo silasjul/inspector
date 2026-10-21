@@ -91,6 +91,13 @@ never from memory.
   remount would reuse a dead renderer. Disposal clears the entry for the same reason. That cache is
   also where the `inspector` flag settles — a second call on a live canvas gets the first call's
   renderer and therefore the first call's flag.
+- **Never intercept or rewire the Inspector's own events or global UI.** This package only feeds
+  the Parameters tab through its API and touches the DOM of rows it built itself. An earlier
+  version stopped pointer events at `inspector.domElement` to keep panel drags out of the scene,
+  and that broke `ValueNumber`: it starts a drag on `pointerdown` and ends it from a `pointerup`
+  listener on `document`, so a swallowed `pointerup` left the drag stuck on and the value followed
+  the mouse after typing into a field. Keeping panel input out of the scene is the app's job — bind
+  camera controls to the canvas (`domElement={gl.domElement}`), which the panel is a sibling of.
 - **Turbopack breaks the Inspector's own import cycle.** `Inspector.js` imports `tabs/Settings.js`
   before `three/webgpu`, and `Settings.js` calls `Inspector.js`'s `getItem` at module load. Native
   ESM bindings are live, so `getItem` still sees `REVISION`; Turbopack assigns each import variable

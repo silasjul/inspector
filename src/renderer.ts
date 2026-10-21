@@ -108,13 +108,6 @@ async function buildRenderer(props: GLDefaults, withInspector: boolean) {
     const { Inspector } = await import('three/addons/inspector/Inspector.js');
     const inspector = new Inspector();
 
-    // The panel mounts as a sibling of the canvas inside R3F's event container, so
-    // without this every drag inside it also reaches the scene. The panel's own
-    // drag handlers sit on inner elements and still run first.
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'contextmenu']) {
-      inspector.domElement.addEventListener(type, (e) => e.stopPropagation());
-    }
-
     renderer.inspector = inspector;
     setInspector(inspector);
 
